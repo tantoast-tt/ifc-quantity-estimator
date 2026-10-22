@@ -37,8 +37,10 @@ def build_meshes(f, elements: pd.DataFrame):
             off = len(b["x"])
             b["x"] += v[:, 0].tolist(); b["y"] += v[:, 1].tolist(); b["z"] += v[:, 2].tolist()
             b["i"] += (fc[:, 0] + off).tolist(); b["j"] += (fc[:, 1] + off).tolist(); b["k"] += (fc[:, 2] + off).tolist()
-            area = row["면적(㎡)"]; vol = row["체적(㎥)"]
-            label = f"{cat} · {row['이름']}<br>층 {row['층']}<br>면적 {area:.2f}㎡ · 체적 {vol:.3f}㎥"
+            area, vol = row["면적(㎡)"], row["체적(㎥)"]
+            a_txt = f"{area:.2f}㎡" if pd.notna(area) else "–"
+            v_txt = f"{vol:.3f}㎥" if pd.notna(vol) else "–"
+            label = f"{cat} · {row['이름']}<br>층 {row['층']}<br>면적 {a_txt} · 체적 {v_txt}<br>출처 {row['출처'] or '–'}"
             b["text"] += [label] * len(v)
         if not it.next():
             break

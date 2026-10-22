@@ -13,8 +13,14 @@ BASIS = {
     "보 개수":          lambda s, sp: _sum(s, "보", "개수"),
     "창호 면적":        lambda s, sp: _sum(s, "창호", "면적 합계(㎡)"),
     "문 개수":          lambda s, sp: _sum(s, "문", "개수"),
-    "실 순면적":        lambda s, sp: float(sp["순면적(㎡)"].sum()),
+    "실 순면적":        lambda s, sp: float(_floor_area(sp)),
 }
+
+
+def _floor_area(spaces: pd.DataFrame) -> float:
+    """연면적 집계 대상 실의 순면적 합 (지붕 등 제외)."""
+    sp = spaces[spaces["연면적 포함"]] if "연면적 포함" in spaces else spaces
+    return float(sp["순면적(㎡)"].fillna(0).sum())
 
 
 def _sum(summary: pd.DataFrame, category: str, col: str) -> float:
@@ -49,7 +55,7 @@ def summarize_by_trade(est: pd.DataFrame, spaces: pd.DataFrame) -> tuple[pd.Data
     by = est.groupby("공종", sort=False)["금액(원)"].sum().reset_index()
     total = int(by["금액(원)"].sum())
     by["비중(%)"] = (by["금액(원)"] / total * 100).round(1) if total else 0
-    area = float(spaces["순면적(㎡)"].sum())
+    area = _floor_area(spaces)
     pyeong = area / PYEONG
     kpi = {
         "총액(원)": total,

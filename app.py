@@ -13,7 +13,10 @@ from extract import run as extract_run
 from estimate import load_prices, estimate, summarize_by_trade, to_excel
 from viewer import figure as viewer_figure
 
-SAMPLE = Path(__file__).parent / "samples" / "FZK-Haus.ifc"
+SAMPLES = {
+    "FZK-Haus — ArchiCAD, IFC4, 2층 단독주택": Path(__file__).parent / "samples" / "FZK-Haus.ifc",
+    "Duplex — Revit, IFC2x3, 2세대 듀플렉스": Path(__file__).parent / "samples" / "Duplex.ifc",
+}
 
 st.set_page_config(page_title="IFC Quantity Estimator", layout="wide")
 st.title("IFC Quantity Estimator")
@@ -23,7 +26,8 @@ st.caption("BIM(IFC) 모델 → 부재 물량 · 실별 면적 → 단가표 적
 with st.sidebar:
     st.header("입력")
     up = st.file_uploader("IFC 파일 업로드", type=["ifc"])
-    use_sample = st.checkbox("샘플(FZK-Haus) 사용", value=up is None)
+    use_sample = st.checkbox("샘플 사용", value=up is None)
+    sample_key = st.radio("샘플", list(SAMPLES), disabled=not use_sample, label_visibility="collapsed")
     st.divider()
     st.markdown(
         "**사용 순서**\n1. IFC 업로드 또는 샘플 선택\n2. 물량·면적 확인\n"
@@ -50,14 +54,16 @@ def build_3d(path: str, name: str):
 if up is not None and not use_sample:
     schema, el, summ, sp, ifc_path = parse(up.getvalue(), up.name)
     src = up.name
-elif SAMPLE.exists():
-    schema, el, summ, sp, ifc_path = parse(SAMPLE.read_bytes(), SAMPLE.name)
-    src = SAMPLE.name
+elif SAMPLES[sample_key].exists():
+    _p = SAMPLES[sample_key]
+    schema, el, summ, sp, ifc_path = parse(_p.read_bytes(), _p.name)
+    src = _p.name
 else:
     st.info("IFC 파일을 업로드하세요.")
     st.stop()
 
-st.success(f"**{src}** · {schema} · 부재 {len(el)}개 · 실 {len(sp)}개")
+_srcs = " / ".join(sorted(set(x for x in el["출처"] if x)))
+st.success(f"**{src}** · {schema} · 부재 {len(el)}개 · 실 {len(sp)}개 · 물량 출처: {_srcs}")
 
 # ── 1-1. 3D 뷰 ───────────────────────────────────────────
 st.subheader("3D 뷰")
@@ -70,11 +76,15 @@ if show_3d:
 c1, c2 = st.columns(2)
 with c1:
     st.subheader("부재 물량 요약")
+    st.caption("출처 — BaseQuantities(IFC 표준 수량) → 기타 수량 Pset(Revit 등) → 형상 계산 순으로 폴백")
     st.dataframe(summ, hide_index=True, width="stretch")
 with c2:
     st.subheader("실별 면적")
+    st.caption("연면적 포함 — 지붕처럼 바닥이 아닌 실은 체크 해제되어 연면적·평당가에서 제외")
     st.dataframe(sp, hide_index=True, width="stretch")
-    st.metric("연면적(순)", f"{sp['순면적(㎡)'].sum():.2f} ㎡  /  {sp['평'].sum():.2f} 평")
+    _inc = sp[sp["연면적 포함"]]
+    st.metric("연면적(순)", f"{_inc['순면적(㎡)'].sum():.2f} ㎡  /  {_inc['평'].sum():.2f} 평",
+              help="지붕 등 '연면적 포함'이 아닌 실은 제외")
 
 with st.expander("부재 상세 (전체 목록)"):
     st.dataframe(el, hide_index=True, width="stretch")
