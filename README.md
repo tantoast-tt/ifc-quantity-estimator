@@ -12,14 +12,15 @@ BIM 모델(IFC)을 넣으면 부재별 물량표와 실별 면적표를 뽑고, 
 | 2 | 실별 면적표(㎡·평), 층 정보 | 완료 |
 | 3 | 단가표 × 물량 → 공종별 견적·총액·평당가 | 완료 |
 | 4 | 웹 화면(업로드 → 표 → 단가 수정 → 엑셀 다운로드) | 완료 |
-| 5 | 배포 | 진행 중 |
-| 6 | 3D 뷰어 | 검토 중 |
+| 5 | 배포 (Streamlit Community Cloud) | 완료 |
+| 6 | 3D 뷰어 — 분류별 켜고 끄기, 부재 hover 시 면적·체적 | 완료 |
+| 7 | 수량 정보가 없는 부재의 형상 기반 체적 계산 | 진행 중 |
 
 ## 데모
 
-배포 URL
-
 **Live demo:** https://ifc-quantity-estimator.streamlit.app
+
+![demo](docs/demo.gif)
 
 ## 실행
 
@@ -36,9 +37,10 @@ python estimate.py samples/FZK-Haus.ifc # 물량 + 견적 → output/estimate.xl
 ## 구조
 
 ```
-app.py            Streamlit 화면 — 업로드 · 표 · 단가 편집 · 차트 · 엑셀 다운로드
+app.py            Streamlit 화면 — 업로드 · 3D 뷰 · 표 · 단가 편집 · 차트 · 엑셀 다운로드
 extract.py        IFC → 부재별 물량 / 실별 면적 (ifcopenshell)
 estimate.py       물량 × 단가표 → 공종별 견적 · 총액 · 평당가 · 엑셀
+viewer.py         IFC 형상 → 삼각 메시 → plotly Mesh3d
 data/unit_prices.csv   단가표 = 산출 규칙표 (항목·산출기준·단가)
 samples/FZK-Haus.ifc   테스트용 IFC4 주택 모델
 ```
@@ -83,10 +85,25 @@ samples/FZK-Haus.ifc   테스트용 IFC4 주택 모델
 
 ## 어떻게 동작하나
 
+### 물량 (extract.py)
+
 - **물량은 IFC에 내장된 `BaseQuantities`를 읽습니다.** 설계 툴(이 샘플은 ArchiCAD)이 내보낸 값을 그대로 쓰므로 형상 재계산 없이 빠르고, 설계자가 보는 수치와 일치합니다.
 - 면적 기준은 부재마다 다릅니다. 벽은 측면적(`NetSideArea`), 슬래브는 평면적(`NetArea`), 창호·문은 개구부 면적(`Area`)을 씁니다.
 - 실(`IfcSpace`)은 층에 `ContainedIn`이 아니라 `Aggregates` 관계로 묶여 있어 층을 따로 추적합니다.
 - 재료는 `IfcMaterialLayerSet`을 풀어 층별 재료명을 이어 붙입니다.
+
+### 3D 뷰 (viewer.py)
+
+화면의 집 모양은 이 프로젝트가 만든 것이 아니라, **IFC 파일 안에 부재별로 저장된 형상 정의를 그대로 계산해 그린 것**입니다.
+
+1. **IFC에 들어 있는 것** — IFC는 텍스트 파일이고, 벽·창·지붕 같은 부재마다 형상 정의가 붙어 있습니다. 대부분은 돌출체(`IfcExtrudedAreaSolid`: "이 2D 단면을 이 방향으로 이만큼 밀어라")이고, 창호·계단처럼 복잡한 것은 경계면 집합(BRep)으로 저장돼 있습니다. 벽에 뚫린 창 구멍은 `IfcOpeningElement`로 별도 기록됩니다. 각 부재의 위치·방향은 `IfcLocalPlacement`가 층 → 건물 → 대지 순으로 계층적으로 정의합니다.
+   `samples/FZK-Haus.ifc`를 텍스트 편집기로 열어 `IFCEXTRUDEDAREASOLID`를 검색하면 벽체 단면과 돌출 높이가 그대로 보입니다.
+2. **형상 → 메시** — `ifcopenshell.geom.iterator`가 위 정의를 삼각형 메시(꼭짓점 좌표 + 삼각형 인덱스)로 변환합니다. 내부에서 CAD 커널(OpenCASCADE)이 돌출과 불리언 연산(벽에서 개구부 빼기)을 실제로 수행합니다. `use-world-coords` 옵션으로 모든 부재를 전역 좌표로 받습니다.
+3. **메시 → 화면** — 부재의 `GlobalId`로 물량표와 짝을 맞춰 분류(벽체·창호·슬래브…)별로 메시를 묶고 색을 입혀 plotly `Mesh3d`로 그립니다. 마우스를 올리면 나오는 면적·체적은 1단계 물량표의 값입니다. 범례 클릭으로 분류를 숨길 수 있어, 지붕 슬래브를 끄면 내부 벽 배치가 보입니다.
+
+물량(수량값 읽기)과 3D(형상 계산)는 **서로 독립적인 두 경로**입니다. 그래서 수량값이 빠진 부재는 형상 메시에서 체적을 직접 계산해 채울 수 있고, 이것이 다음 단계(7)입니다.
+
+처음 열 때 형상 변환에 10초 안팎이 걸리며, 이후엔 캐시됩니다.
 
 ## 한계
 
@@ -96,7 +113,7 @@ samples/FZK-Haus.ifc   테스트용 IFC4 주택 모델
 
 ## 스택
 
-Python 3.10 · ifcopenshell 0.9.0 · pandas · Streamlit 1.65 · plotly · openpyxl
+Python 3.10 · ifcopenshell 0.9.0 (OpenCASCADE 기반 형상 변환) · pandas · numpy · Streamlit 1.65 · plotly · openpyxl
 
 ## 샘플 출처
 
