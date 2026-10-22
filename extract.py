@@ -159,6 +159,16 @@ def _dims(e) -> dict:
                        width=out["width"] or _pick(ps, ("Width", "Thickness")),
                        height=out["height"] or _pick(ps, ("Height", "Unbounded Height")))
             out["source"] = name
+            # 면적이 빠져 있으면 형상 경계상자로 보충 (벽·슬래브 등 판형 부재)
+            if out["area"] is None:
+                g = _geom_dims(e)
+                if g:
+                    out["height"] = out["height"] or g["height"]
+                    out["length"] = out["length"] or g["length"]
+                    out["width"] = out["width"] or g["width"]
+                    if out["area"] is None and out["length"] and out["height"]:
+                        out["area"] = out["length"] * out["height"]
+                    out["source"] = f"{name} + 형상 보충"
             return out
     # 3) 형상 계산
     g = _geom_dims(e)

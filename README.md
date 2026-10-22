@@ -1,5 +1,7 @@
 # IFC Quantity Estimator
 
+[![tests](https://github.com/tantoast-tt/ifc-quantity-estimator/actions/workflows/tests.yml/badge.svg)](https://github.com/tantoast-tt/ifc-quantity-estimator/actions/workflows/tests.yml)
+
 BIM 모델(IFC)을 넣으면 부재별 물량표와 실별 면적표를 뽑고, 단가표를 곱해 개략 견적까지 산출하는 도구입니다.
 
 설계 데이터가 이미 BIM에 있는데도 물량 산출과 견적은 사람이 다시 손으로 옮기는 경우가 많습니다. 이 프로젝트는 그 사이를 코드로 잇는 작은 실험입니다. 모듈러·프리패브처럼 표준화된 주택일수록 BIM 물량을 그대로 견적에 쓸 여지가 크다고 보고 시작했습니다.
@@ -17,6 +19,7 @@ BIM 모델(IFC)을 넣으면 부재별 물량표와 실별 면적표를 뽑고, 
 | 7 | 물량 출처 3단 폴백(BaseQuantities → 기타 Pset → 형상 계산) + 출처 표기 | 완료 |
 | 8 | 두 번째 샘플(Revit · IFC2x3 Duplex) 대응 | 완료 |
 | 9 | 벽체 패널 일람표 — 패널라이징용 벽 단위 정리, 운송 한계 분할 제안 | 완료 |
+| 10 | 회귀 테스트(pytest 10건) + GitHub Actions CI | 완료 |
 
 ## 데모
 
@@ -34,6 +37,9 @@ pip install -r requirements.txt
 streamlit run app.py                    # 웹 화면
 python extract.py samples/FZK-Haus.ifc  # 물량만 CSV로
 python estimate.py samples/FZK-Haus.ifc # 물량 + 견적 → output/estimate.xlsx
+python panels.py samples/FZK-Haus.ifc 6 # 패널 일람표 (운송 한계 6 m)
+
+pip install -r requirements-dev.txt && pytest -q   # 테스트
 ```
 
 ## 구조
@@ -47,6 +53,7 @@ panels.py         벽체 → 패널 일람표 (개구부 집계, 운송 한계 �
 data/unit_prices.csv   단가표 = 산출 규칙표 (항목·산출기준·단가)
 samples/FZK-Haus.ifc   ArchiCAD 내보내기, IFC4, 2층 단독주택
 samples/Duplex.ifc     Revit 내보내기, IFC2x3, 2세대 듀플렉스
+tests/test_samples.py  두 샘플의 수치를 고정한 회귀 테스트 (부재 수·면적·총액·패널 분할·폴백 출처)
 ```
 
 단가표의 `산출기준` 열("벽체 면적", "문 개수" 등)이 코드의 계산 규칙과 연결됩니다. 단가를 바꾸거나 항목을 추가해도 코드 수정 없이 반영되도록 했습니다.
@@ -126,6 +133,10 @@ samples/Duplex.ifc     Revit 내보내기, IFC2x3, 2세대 듀플렉스
 물량(수량값 읽기)과 3D(형상 계산)는 **서로 독립적인 두 경로**입니다. 그래서 수량값이 빠진 부재는 형상 메시에서 체적을 직접 계산해 채울 수 있고, 이것이 다음 단계(7)입니다.
 
 처음 열 때 형상 변환에 10초 안팎이 걸리며, 이후엔 캐시됩니다.
+
+## 검증
+
+두 샘플에 대해 부재 수, 면적·체적 합계, 연면적, 견적 총액, 패널 분할 수, 폴백 출처가 고정값과 일치하는지 pytest로 확인합니다. 열린 메시(난간)를 걸러낸 뒤 계단 체적이 상식 범위(< 3㎥)에 드는지도 검사합니다. push마다 GitHub Actions에서 자동 실행됩니다.
 
 ## 한계
 
