@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/33818539/README.md)
 # IFC Quantity Estimator
 
 BIM 모델(IFC)을 넣으면 부재별 물량표와 실별 면적표를 뽑고, 단가표를 곱해 개략 견적까지 산출하는 도구입니다.
@@ -11,9 +10,16 @@ BIM 모델(IFC)을 넣으면 부재별 물량표와 실별 면적표를 뽑고, 
 |---|---|---|
 | 1 | IFC 파싱 → 부재별 물량(개수·면적·체적) CSV | 완료 |
 | 2 | 실별 면적표(㎡·평), 층 정보 | 완료 |
-| 3 | 단가표 × 물량 → 공종별 견적·총액·평당가 | 진행 중 |
-| 4 | 웹 화면(업로드 → 표 → 단가 수정 → 엑셀 다운로드) | 예정 |
-| 5 | 3D 뷰어 | 검토 중 |
+| 3 | 단가표 × 물량 → 공종별 견적·총액·평당가 | 완료 |
+| 4 | 웹 화면(업로드 → 표 → 단가 수정 → 엑셀 다운로드) | 완료 |
+| 5 | 배포 | 진행 중 |
+| 6 | 3D 뷰어 | 검토 중 |
+
+## 데모
+
+(배포 URL — 배포 후 기입)
+
+**Live demo:** https://ifc-quantity-estimator.streamlit.app
 
 ## 실행
 
@@ -21,10 +27,23 @@ BIM 모델(IFC)을 넣으면 부재별 물량표와 실별 면적표를 뽑고, 
 python -m venv .venv
 .venv\Scripts\activate        # Windows
 pip install -r requirements.txt
-python extract.py samples/FZK-Haus.ifc
+
+streamlit run app.py                    # 웹 화면
+python extract.py samples/FZK-Haus.ifc  # 물량만 CSV로
+python estimate.py samples/FZK-Haus.ifc # 물량 + 견적 → output/estimate.xlsx
 ```
 
-`output/` 폴더에 `elements.csv`(부재별), `summary.csv`(분류별 합계), `spaces.csv`(실별 면적)가 생성됩니다.
+## 구조
+
+```
+app.py            Streamlit 화면 — 업로드 · 표 · 단가 편집 · 차트 · 엑셀 다운로드
+extract.py        IFC → 부재별 물량 / 실별 면적 (ifcopenshell)
+estimate.py       물량 × 단가표 → 공종별 견적 · 총액 · 평당가 · 엑셀
+data/unit_prices.csv   단가표 = 산출 규칙표 (항목·산출기준·단가)
+samples/FZK-Haus.ifc   테스트용 IFC4 주택 모델
+```
+
+단가표의 `산출기준` 열("벽체 면적", "문 개수" 등)이 코드의 계산 규칙과 연결됩니다. 단가를 바꾸거나 항목을 추가해도 코드 수정 없이 반영되도록 했습니다.
 
 ## 샘플 결과 (AC20-FZK-Haus, 2층 단독주택)
 
@@ -52,6 +71,16 @@ python extract.py samples/FZK-Haus.ifc
 
 연면적(순) 173.36㎡ = 52.44평
 
+## 견적 샘플 (단가는 전부 가정값)
+
+| 공종 | 금액(원) | 비중 |
+|---|---|---|
+| 구조 | 86,020,300 | 56.6% |
+| 내부마감 | 48,540,800 | 32.0% |
+| 창호 | 15,060,500 | 9.9% |
+| 문 | 2,250,000 | 1.5% |
+| **합계** | **151,871,600** | 평당 2,896,025원 |
+
 ## 어떻게 동작하나
 
 - **물량은 IFC에 내장된 `BaseQuantities`를 읽습니다.** 설계 툴(이 샘플은 ArchiCAD)이 내보낸 값을 그대로 쓰므로 형상 재계산 없이 빠르고, 설계자가 보는 수치와 일치합니다.
@@ -62,12 +91,12 @@ python extract.py samples/FZK-Haus.ifc
 ## 한계
 
 - 수량 정보가 없는 부재(이 샘플의 서까래·보 일부)는 면적·체적이 0으로 나옵니다. 형상에서 직접 계산하는 폴백은 아직 없습니다.
-- 샘플은 경량콘크리트 주택입니다. 목조 주택 단가는 가정값으로 넣을 예정이며 실제 견적 근거로 쓸 수 없습니다.
+- 샘플은 경량콘크리트 주택입니다. 단가표의 값은 목조 주택을 가정한 임의값이라 실제 견적 근거로 쓸 수 없습니다.
 - 실명·층명 한글 변환은 샘플 기준 매핑이라 다른 파일은 원문 그대로 나옵니다.
 
 ## 스택
 
-Python 3.10 · ifcopenshell 0.9.0 · pandas · Streamlit(예정) · openpyxl
+Python 3.10 · ifcopenshell 0.9.0 · pandas · Streamlit 1.65 · plotly · openpyxl
 
 ## 샘플 출처
 
