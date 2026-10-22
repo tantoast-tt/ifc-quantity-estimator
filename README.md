@@ -4,6 +4,12 @@
 
 BIM 모델(IFC)을 넣으면 부재별 물량표와 실별 면적표를 뽑고, 단가표를 곱해 개략 견적까지 산출하는 도구입니다.
 
+**Live demo:** https://ifc-quantity-estimator.streamlit.app
+
+![demo](docs/demo.gif)
+
+<sub>3D 뷰 회전 · 지붕 끄고 내부 보기 → 물량·실 면적 → 운송 한계 6 m로 패널 분할 → 벽체 단가 수정 → 견적 재계산 → 엑셀 다운로드 (2배속)</sub>
+
 설계 데이터가 이미 BIM에 있는데도 물량 산출과 견적은 사람이 다시 손으로 옮기는 경우가 많습니다. 이 프로젝트는 그 사이를 코드로 잇는 작은 실험입니다. 모듈러·프리패브처럼 표준화된 주택일수록 BIM 물량을 그대로 견적에 쓸 여지가 크다고 보고 시작했습니다.
 
 ## 현재 상태
@@ -20,12 +26,6 @@ BIM 모델(IFC)을 넣으면 부재별 물량표와 실별 면적표를 뽑고, 
 | 8 | 두 번째 샘플(Revit · IFC2x3 Duplex) 대응 | 완료 |
 | 9 | 벽체 패널 일람표 — 패널라이징용 벽 단위 정리, 운송 한계 분할 제안 | 완료 |
 | 10 | 회귀 테스트(pytest 10건) + GitHub Actions CI | 완료 |
-
-## 데모
-
-**Live demo:** https://ifc-quantity-estimator.streamlit.app
-
-![demo](docs/demo.gif)
 
 ## 실행
 
