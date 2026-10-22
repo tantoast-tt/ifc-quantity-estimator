@@ -7,8 +7,11 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+import ifcopenshell
+
 from extract import run as extract_run
 from estimate import load_prices, estimate, summarize_by_trade, to_excel
+from viewer import figure as viewer_figure
 
 SAMPLE = Path(__file__).parent / "samples" / "FZK-Haus.ifc"
 
@@ -34,20 +37,34 @@ def parse(file_bytes: bytes, name: str):
         tmp.write(file_bytes)
         path = tmp.name
     schema, el, summ, sp = extract_run(path, out_dir=tempfile.mkdtemp())
-    return schema, el, summ, sp
+    return schema, el, summ, sp, path
+
+
+@st.cache_resource(show_spinner="3D 형상 생성 중… (최초 1회, 10초 내외)")
+def build_3d(path: str, name: str):
+    f = ifcopenshell.open(path)
+    _, el, _, _ = extract_run(path, out_dir=tempfile.mkdtemp())
+    return viewer_figure(f, el)
 
 
 if up is not None and not use_sample:
-    schema, el, summ, sp = parse(up.getvalue(), up.name)
+    schema, el, summ, sp, ifc_path = parse(up.getvalue(), up.name)
     src = up.name
 elif SAMPLE.exists():
-    schema, el, summ, sp = parse(SAMPLE.read_bytes(), SAMPLE.name)
+    schema, el, summ, sp, ifc_path = parse(SAMPLE.read_bytes(), SAMPLE.name)
     src = SAMPLE.name
 else:
     st.info("IFC 파일을 업로드하세요.")
     st.stop()
 
 st.success(f"**{src}** · {schema} · 부재 {len(el)}개 · 실 {len(sp)}개")
+
+# ── 1-1. 3D 뷰 ───────────────────────────────────────────
+st.subheader("3D 뷰")
+st.caption("드래그로 회전, 휠로 확대. 범례의 분류를 클릭하면 숨겨집니다(지붕을 끄면 내부가 보입니다). 부재에 마우스를 올리면 면적·체적이 표시됩니다.")
+show_3d = st.toggle("3D 뷰 표시", value=True)
+if show_3d:
+    st.plotly_chart(build_3d(ifc_path, src), width="stretch", config={"displayModeBar": False})
 
 # ── 2. 물량 ───────────────────────────────────────────────
 c1, c2 = st.columns(2)
