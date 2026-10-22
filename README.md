@@ -17,7 +17,7 @@ BIM 모델(IFC)을 넣으면 부재별 물량표와 실별 면적표를 뽑고, 
 
 ## 데모
 
-(배포 URL — 배포 후 기입)
+배포 URL
 
 **Live demo:** https://ifc-quantity-estimator.streamlit.app
 
