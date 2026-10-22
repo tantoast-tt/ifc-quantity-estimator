@@ -81,10 +81,10 @@ if show_3d:
     st.plotly_chart(build_3d(ifc_path, src), width="stretch", config={"displayModeBar": False})
 
 # ── 2. 물량 ───────────────────────────────────────────────
+st.caption("물량 출처 — BaseQuantities(IFC 표준 수량) → 기타 수량 Pset(Revit 등) → 형상 계산 순으로 폴백 · '연면적 포함'이 꺼진 실(지붕 등)은 연면적·평당가에서 제외")
 c1, c2 = st.columns(2)
 with c1:
     st.subheader("부재 물량 요약")
-    st.caption("출처 — BaseQuantities(IFC 표준 수량) → 기타 수량 Pset(Revit 등) → 형상 계산 순으로 폴백")
     st.dataframe(summ, hide_index=True, width="stretch")
 with c2:
     st.subheader("실별 면적")
