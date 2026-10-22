@@ -12,6 +12,7 @@ import ifcopenshell
 from extract import run as extract_run
 from estimate import load_prices, estimate, summarize_by_trade, to_excel
 from viewer import figure as viewer_figure
+from panels import wall_panels, panel_summary, DEFAULT_MAX_LEN
 
 SAMPLES = {
     "FZK-Haus — ArchiCAD, IFC4, 2층 단독주택": Path(__file__).parent / "samples" / "FZK-Haus.ifc",
@@ -42,6 +43,13 @@ def parse(file_bytes: bytes, name: str):
         path = tmp.name
     schema, el, summ, sp = extract_run(path, out_dir=tempfile.mkdtemp())
     return schema, el, summ, sp, path
+
+
+@st.cache_data(show_spinner="패널 일람표 계산 중…")
+def cached_panels(path: str, name: str, max_len: float):
+    f = ifcopenshell.open(path)
+    _, el, _, _ = extract_run(path, out_dir=tempfile.mkdtemp())
+    return wall_panels(f, el, max_len=max_len)
 
 
 @st.cache_resource(show_spinner="3D 형상 생성 중… (최초 1회, 10초 내외)")
@@ -80,7 +88,6 @@ with c1:
     st.dataframe(summ, hide_index=True, width="stretch")
 with c2:
     st.subheader("실별 면적")
-    st.caption("연면적 포함 — 지붕처럼 바닥이 아닌 실은 체크 해제되어 연면적·평당가에서 제외")
     st.dataframe(sp, hide_index=True, width="stretch")
     _inc = sp[sp["연면적 포함"]]
     st.metric("연면적(순)", f"{_inc['순면적(㎡)'].sum():.2f} ㎡  /  {_inc['평'].sum():.2f} 평",
@@ -88,6 +95,28 @@ with c2:
 
 with st.expander("부재 상세 (전체 목록)"):
     st.dataframe(el, hide_index=True, width="stretch")
+
+# ── 2-1. 패널 일람표 ──────────────────────────────────────
+st.subheader("벽체 패널 일람표 (패널라이징)")
+st.caption("벽 1장 = 공장 제작 패널 1장으로 보고 길이·높이·개구부·순면적을 정리합니다. 운송 한계를 넘는 벽은 분할 수를 제안합니다.")
+pc1, pc2 = st.columns([1, 3])
+with pc1:
+    max_len = st.slider("운송 한계 길이(m)", 3.0, 15.0, DEFAULT_MAX_LEN, 0.5,
+                        help="트럭 적재 가능 패널 길이 가정값. 공장·차량 조건에 맞게 조정")
+panels = cached_panels(ifc_path, src, max_len)
+ps = panel_summary(panels)
+if ps:
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("벽체 수", ps["벽체 수"])
+    m2.metric("패널 수(분할 후)", ps["패널 수(분할 후)"], delta=f"+{ps['패널 수(분할 후)'] - ps['벽체 수']} 분할" if ps["운송 초과 벽체"] else None, delta_color="off")
+    m3.metric("운송 초과 벽체", ps["운송 초과 벽체"], help=f"최장 벽체 {ps['최장 벽체(m)']:.2f} m")
+    m4.metric("외벽 / 내벽 순패널면적", f"{ps['외벽 순패널면적(㎡)']:,.1f} / {ps['내벽 순패널면적(㎡)']:,.1f} ㎡")
+    st.dataframe(
+        panels.drop(columns=["재료"]).style
+            .format(precision=2, na_rep="–")
+            .apply(lambda s: ["background-color: rgba(224,122,95,0.18)" if v else "" for v in s], subset=["운송 초과"]),
+        hide_index=True, width="stretch",
+    )
 
 # ── 3. 단가표 ─────────────────────────────────────────────
 st.subheader("단가표 (수정 가능)")
@@ -129,9 +158,9 @@ with c4:
 
 # ── 5. 다운로드 ───────────────────────────────────────────
 buf = io.BytesIO()
-to_excel(buf, summ, sp, est, by, kpi)
+to_excel(buf, summ, sp, est, by, kpi, panels=panels)
 st.download_button(
-    "엑셀 다운로드 (요약·공종별·견적내역·부재물량·실별면적)",
+    "엑셀 다운로드 (요약·공종별·견적내역·부재물량·실별면적·패널일람)",
     data=buf.getvalue(),
     file_name=f"estimate_{Path(src).stem}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

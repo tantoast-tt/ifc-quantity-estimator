@@ -67,13 +67,15 @@ def summarize_by_trade(est: pd.DataFrame, spaces: pd.DataFrame) -> tuple[pd.Data
     return by, kpi
 
 
-def to_excel(path, summary, spaces, est, by_trade, kpi):
+def to_excel(path, summary, spaces, est, by_trade, kpi, panels: pd.DataFrame | None = None):
     with pd.ExcelWriter(path, engine="openpyxl") as xw:
         pd.DataFrame([kpi]).T.rename(columns={0: "값"}).to_excel(xw, sheet_name="요약")
         by_trade.to_excel(xw, sheet_name="공종별", index=False)
         est.to_excel(xw, sheet_name="견적내역", index=False)
         summary.to_excel(xw, sheet_name="부재물량", index=False)
         spaces.to_excel(xw, sheet_name="실별면적", index=False)
+        if panels is not None and len(panels):
+            panels.to_excel(xw, sheet_name="패널일람", index=False)
 
 
 if __name__ == "__main__":
